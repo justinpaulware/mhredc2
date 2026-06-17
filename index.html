@@ -71,21 +71,9 @@ const map = new maplibregl.Map({
 // LOAD ON READY
 // =======================
 
-  map.on("load", () => {
 
-  if (!window.LAYERS || !Array.isArray(LAYERS)) {
-    console.error("LAYERS is missing or invalid", LAYERS);
-    return;
-  }
-
-  console.log("Layers loaded:", LAYERS);
-
-  LAYERS.forEach(layer => {
-    loadLayer(layer);
-  });
-
-  buildLayerUI();
-});
+map.on("load", () => {
+  LAYERS.forEach(loadLayer);
 
 // =======================
 // LAYER DISPATCHER
