@@ -1,37 +1,33 @@
-const CONFIG = {
+const LAYERS = [
+  {
+    id: "sheet-layer",
+    name: "Opportunity Sites",
+    type: "sheet",
 
-  filters: [
-    {
-      id: "category",
-      label: "Category",
-      field: "Category",
-      options: ["All", "Community Asset", "Opportunity Site", "Concern", "Vacant Building"]
+    url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTOmFRs9WqWbsV18n0Ulujr-yNGiyEfFmiDzKQEXBuDBh-Cak-ZQdhczddXWLnRQcDk_1dmAawjtqb6/pub?output=csv",
+
+    latField: "Latitude",
+    lngField: "Longitude",
+
+    paint: {
+      type: "circle",
+      radius: 6,
+      color: "#2563eb"
     }
-  ],
+  },
 
-  layers: [
-    {
-      id: "community",
-      name: "Community Points",
-      type: "sheet",
-      url: "PASTE_GOOGLE_SHEET_CSV_URL",
-      group: "Community",
+  {
+    id: "rest-layer",
+    name: "Counties",
+    type: "rest",
 
-      style: "circle",
+    url: "https://services6.arcgis.com/EbVsqZ18sv1kVJ3k/arcgis/rest/services/NYS_Civil_Boundaries/FeatureServer/2/query?where=NAME='Westchester' OR NAME='Rockland' OR NAME='Sullivan' OR NAME='Putnam' OR NAME='Ulster' OR NAME='Orange' OR NAME='Dutchess' &outFields=*&f=geojson",
 
-      colorField: "Category",
-      colorMap: {
-        "Community Asset": "#2563eb",
-        "Opportunity Site": "#f59e0b",
-        "Concern": "#ef4444",
-        "Vacant Building": "#6b7280"
-      },
-
-      paint: {
-        "circle-radius": 6,
-        "circle-stroke-width": 1,
-        "circle-stroke-color": "#ffffff"
-      }
+    paint: {
+      type: "fill",
+      fill: "#f59e0b",
+      opacity: 0.3,
+      outline: "#b45309"
     }
-  ]
-};
+  }
+];
