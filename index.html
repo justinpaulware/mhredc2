@@ -2,39 +2,46 @@
 <html>
 <head>
 <meta charset="utf-8" />
-<title>GIS Template</title>
+<title>GIS Template (Clean Base)</title>
 
 <link href="https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.css" rel="stylesheet">
 <script src="https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
-<script src="config.js"></script>
+<!-- Your layer config -->
+<script src="layers.js"></script>
 
 <style>
-body { margin: 0; font-family: sans-serif; }
+body {
+  margin: 0;
+  font-family: Helvetica, sans-serif;
+}
 
 #sidebar {
   position: absolute;
-  left: 0;
   top: 0;
+  left: 0;
   width: 260px;
   height: 100vh;
-  background: white;
+  background: #fff;
+  border-right: 1px solid #ddd;
   padding: 12px;
   overflow-y: auto;
-  border-right: 1px solid #ddd;
 }
 
 #map {
   position: absolute;
+  top: 0;
   left: 260px;
   right: 0;
-  top: 0;
   bottom: 0;
 }
 
-.layer-block { margin-bottom: 10px; }
-.group { font-weight: bold; margin-top: 10px; }
+.layer-item {
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #eee;
+}
 </style>
 </head>
 
@@ -42,30 +49,45 @@ body { margin: 0; font-family: sans-serif; }
 
 <div id="sidebar">
   <h3>Layers</h3>
-  <div id="controls"></div>
+  <div id="layerList"></div>
 </div>
 
 <div id="map"></div>
 
 <script>
 
-// =====================
-// MAP
-// =====================
+// =======================
+// MAP INIT
+// =======================
 
 const map = new maplibregl.Map({
   container: "map",
-  style: "https://tiles.openfreemap.org/styles/liberty",
+  style: "https://tiles.openfreemap.org/styles/positron",
   center: [-73.92, 41.29],
-  zoom: 12
+  zoom: 8
 });
 
-// store raw data
-const DATA = {};
+// =======================
+// LOAD ON READY
+// =======================
 
-// =====================
-// LOADERS
-// =====================
+map.on("load", () => {
+  LAYERS.forEach(loadLayer);
+  buildLayerUI();
+});
+
+// =======================
+// LAYER DISPATCHER
+// =======================
+
+function loadLayer(layer) {
+  if (layer.type === "sheet") loadSheet(layer);
+  if (layer.type === "rest") loadRest(layer);
+}
+
+// =======================
+// SHEET LAYER
+// =======================
 
 function loadSheet(layer) {
 
@@ -78,21 +100,19 @@ function loadSheet(layer) {
       const geojson = {
         type: "FeatureCollection",
         features: res.data
-          .filter(d => d.Latitude && d.Longitude)
+          .filter(d => d[layer.latField] && d[layer.lngField])
           .map(d => ({
             type: "Feature",
             geometry: {
               type: "Point",
               coordinates: [
-                parseFloat(d.Longitude),
-                parseFloat(d.Latitude)
+                parseFloat(d[layer.lngField]),
+                parseFloat(d[layer.latField])
               ]
             },
             properties: d
           }))
       };
-
-      DATA[layer.id] = geojson;
 
       map.addSource(layer.id, {
         type: "geojson",
@@ -104,32 +124,25 @@ function loadSheet(layer) {
         type: "circle",
         source: layer.id,
         paint: {
-          "circle-radius": layer.paint.circle-radius,
-          "circle-stroke-width": layer.paint.circle-stroke-width,
-          "circle-stroke-color": layer.paint.circle-stroke-color,
-
-          "circle-color": [
-            "match",
-            ["get", layer.colorField],
-            ...Object.entries(layer.colorMap).flat(),
-            "#999"
-          ]
+          "circle-radius": layer.paint.radius || 6,
+          "circle-color": layer.paint.color || "#3b82f6",
+          "circle-stroke-width": 1,
+          "circle-stroke-color": "#fff"
         }
       });
-
-      buildUI();
-
     }
   });
 }
+
+// =======================
+// REST LAYER
+// =======================
 
 function loadRest(layer) {
 
   fetch(layer.url)
     .then(r => r.json())
     .then(data => {
-
-      DATA[layer.id] = data;
 
       map.addSource(layer.id, {
         type: "geojson",
@@ -141,101 +154,53 @@ function loadRest(layer) {
         type: "fill",
         source: layer.id,
         paint: {
-          "fill-color": layer.colorMap?.default || "#10b981",
-          "fill-opacity": 0.3
+          "fill-color": layer.paint.fill || "#f59e0b",
+          "fill-opacity": layer.paint.opacity || 0.3,
+          "fill-outline-color": layer.paint.outline || "#b45309"
         }
       });
-
-      buildUI();
-
     });
-
 }
 
-// =====================
-// UI
-// =====================
+// =======================
+// UI (LAYER TOGGLES)
+// =======================
 
-function buildUI() {
+function buildLayerUI() {
 
-  const el = document.getElementById("controls");
+  const el = document.getElementById("layerList");
   el.innerHTML = "";
 
-  CONFIG.layers.forEach(layer => {
+  LAYERS.forEach(layer => {
 
     const div = document.createElement("div");
-    div.className = "layer-block";
+    div.className = "layer-item";
 
     div.innerHTML = `
       <label>
-        <input type="checkbox" id="t-${layer.id}" checked>
+        <input type="checkbox" id="toggle-${layer.id}" checked>
         ${layer.name}
       </label>
-      <br>
-      <input type="range" min="0" max="1" step="0.1"
-             value="1" id="o-${layer.id}">
-      <button id="z-${layer.id}">Zoom</button>
     `;
 
     el.appendChild(div);
 
-    document.getElementById(`t-${layer.id}`)
-      .addEventListener("change", e => {
-        map.setLayoutProperty(
-          layer.id,
-          "visibility",
-          e.target.checked ? "visible" : "none"
-        );
-      });
+    setTimeout(() => {
+      document
+        .getElementById(`toggle-${layer.id}`)
+        .addEventListener("change", (e) => {
 
-    document.getElementById(`o-${layer.id}`)
-      .addEventListener("input", e => {
-        const v = parseFloat(e.target.value);
+          if (!map.getLayer(layer.id)) return;
 
-        if (layer.style === "circle") {
-          map.setPaintProperty(layer.id, "circle-opacity", v);
-        }
-
-        if (layer.style === "fill") {
-          map.setPaintProperty(layer.id, "fill-opacity", v);
-        }
-      });
-
-    document.getElementById(`z-${layer.id}`)
-      .addEventListener("click", () => {
-        const data = DATA[layer.id];
-        if (!data) return;
-
-        const coords = [];
-
-        data.features.forEach(f => {
-          if (f.geometry.type === "Point") {
-            coords.push(f.geometry.coordinates);
-          }
+          map.setLayoutProperty(
+            layer.id,
+            "visibility",
+            e.target.checked ? "visible" : "none"
+          );
         });
-
-        if (!coords.length) return;
-
-        const bounds = coords.reduce((b, c) =>
-          b.extend(c),
-          new maplibregl.LngLatBounds(coords[0], coords[0])
-        );
-
-        map.fitBounds(bounds, { padding: 40 });
-      });
+    }, 0);
   });
 }
-
-// =====================
-// BOOT
-// =====================
-
-map.on("load", () => {
-  CONFIG.layers.forEach(layer => {
-    if (layer.type === "sheet") loadSheet(layer);
-    if (layer.type === "rest") loadRest(layer);
-  });
-});
 
 </script>
 
